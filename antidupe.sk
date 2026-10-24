@@ -1,11 +1,27 @@
 options:
-    version: 1.0.2
+    version: 1.0.3
     update-url: https://api.github.com/repos/colle23-skript/AntiDupe/releases/latest
 
 on join:
     if {antidupe::prefix} is not set:
         set {antidupe::prefix} to "&8[&3AntiDupe&8]"
     set {_perm} to {antidupe::permission}
+    set {_is_admin} to false
+    if player has permission "%{_perm}%":
+        set {_is_admin} to true
+    if player is op:
+        set {_is_admin} to true
+    if {_is_admin} is true:
+        if {antidupe::first_join_hint::%player%} is not set:
+            set {antidupe::first_join_hint::%player%} to true
+            wait 3 seconds
+            send "%{antidupe::prefix}% &7--- System Information & Overview ---" to player
+            send " &8» &bCommands: &7/antidupe &8| &7/adp &8(&7Open Control Panel&8)" to player
+            send " &8» &bType A: &7Moving too far while your inventory is open." to player
+            send " &8» &bType B: &7Moving too far while a container (chest/shulker) is open." to player
+            send " &8» &bType C: &7Executing commands or chat while an inventory is open." to player
+            send " &8» &bType D: &7Executing commands or chat while a container is open." to player
+            send " &8» &bType E: &7Attacking an entity while an inventory/container is open." to player
     if player has permission "%{_perm}%":
         wait 2 seconds
         send "%{antidupe::prefix}% &7Author: &fcolle23" to player
@@ -36,6 +52,25 @@ on script load:
         set {antidupe::permission} to "antidupe.admin"
     if {antidupe::prefix} is not set:
         set {antidupe::prefix} to "&8[&3AntiDupe&8]"
+    wait 2 ticks
+    set {_perm} to {antidupe::permission}
+    loop all players:
+        set {_can_see} to false
+        if loop-player has permission "%{_perm}%":
+            set {_can_see} to true
+        if loop-player is op:
+            set {_can_see} to true
+        if {_can_see} is true:
+            send "%{antidupe::prefix}% &7Script successfully reloaded!" to loop-player
+            if {antidupe::first_join_hint::%loop-player%} is not set:
+                set {antidupe::first_join_hint::%loop-player%} to true
+                send "%{antidupe::prefix}% &7--- System Information & Overview ---" to loop-player
+                send " &8» &bCommands: &7/antidupe &8| &7/adp &8(&7Open Control Panel&8)" to loop-player
+                send " &8» &bType A: &7Moving too far while your inventory is open." to loop-player
+                send " &8» &bType B: &7Moving too far while a container (chest/shulker) is open." to loop-player
+                send " &8» &bType C: &7Executing commands or chat while an inventory is open." to loop-player
+                send " &8» &bType D: &7Executing commands or chat while a container is open." to loop-player
+                send " &8» &bType E: &7Attacking an entity while an inventory/container is open." to loop-player
 
 function clearAll(p: player):
     clear {inv_loc::%{_p}%}
@@ -50,6 +85,7 @@ function clearAll(p: player):
     clear {invwalk_flags::B::%{_p}%}
     clear {invwalk_flags::C::%{_p}%}
     clear {invwalk_flags::D::%{_p}%}
+    clear {invwalk_flags::E::%{_p}%}
 
 function addFlag(p: player, type: text):
     if {_p}'s gamemode is creative:
@@ -64,6 +100,8 @@ function addFlag(p: player, type: text):
     else if {_type} is "C":
         set {_max} to 1
     else if {_type} is "D":
+        set {_max} to 1
+    else if {_type} is "E":
         set {_max} to 1
     add 1 to {invwalk_flags::%{_type}%::%{_p}%}
     if {invwalk_flags::%{_type}%::%{_p}%} >= {_max}:
@@ -90,6 +128,12 @@ function processAction(p: player):
     close {_p}'s inventory
 
 on damage:
+    if attacker is a player:
+        if attacker's gamemode is not creative:
+            if {antidupe::inv_open::%attacker%} is true:
+                cancel event
+                addFlag(attacker, "E")
+                close attacker's inventory
     if victim is a player:
         if victim's gamemode is creative:
             stop
