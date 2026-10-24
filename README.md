@@ -15,11 +15,12 @@ AntiDupe continuously monitors player states and packets to ensure absolute serv
 
 ---
 
-## Requirements & Dependencies
+## 📦 Requirements & Dependencies
 To run AntiDupe successfully on your Minecraft server, make sure you have the following installed:
 1. **Minecraft Server**: Paper / Purpur (recommended for optimal performance).
 2. **Skript**: The core Skript plugin by Matocolotoi / Bensku.
 3. **skript-reflect** (Recommended for advanced packet handling and stability).
+4. **SkBee** (Required for robust command tab completion support).
 
 ---
 
@@ -29,18 +30,19 @@ Looking for the ultimate protection? Upgrade to **AntiDupe Premium** to unlock a
 ### Premium Features:
 * **Type Y Check**: Instantly blocks, cancels, and flags any attempt to break or interact with blocks while an inventory is open.
 * **Type Z Check**: Completely controls and restricts any entity interactions (villagers, armor stands, item frames, etc.) while an inventory is open.
+* **Custom Violation Logs**: Automatically records and tracks all player violation flags (with timestamps, ping, and types) accessible via `/antidupe logs <player>`.
 * Priority support and exclusive updates.
 
-### 💳 How to Get Premium:
+### How to Get Premium:
 You can unlock the Premium version through one of the following methods:
 1. **Discord Server Boost**: Boost our official Discord server to get lifetime access to the Premium version for free!
 2. **Direct Purchase**: Buy it directly from the owner for just **€2.00 EUR**.
 
-**[Join our Official Discord Server to get Premium!]([YOUR_DISCORD_INVITE_LINK_HERE](https://discord.gg/QZqBYPW7JG))**
+👉 **[Join our Official Discord Server to get Premium!](YOUR_DISCORD_INVITE_LINK_HERE)**
 
 ---
 
-## Installation
+## ⚙️ Installation
 1. Download the latest `.sk` file from the [Releases](https://github.com/colle23-skript/AntiDupe/releases) tab.
 2. Place the file inside your `plugins/Skript/scripts/` folder.
 3. Run `/skript reload <filename>` or restart your server.
