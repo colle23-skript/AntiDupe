@@ -60,9 +60,9 @@ function addFlag(p: player, type: text):
     else if {_type} is "B":
         set {_max} to 4
     else if {_type} is "C":
-        set {_max} to 1
+        set {_max} to 2
     else if {_type} is "D":
-        set {_max} to 1
+        set {_max} to 2
     add 1 to {invwalk_flags::%{_type}%::%{_p}%}
     if {invwalk_flags::%{_type}%::%{_p}%} >= {_max}:
         set {_perm} to {antidupe::permission}
@@ -116,9 +116,8 @@ function checkInvWalk(p: player):
         clear {has_container_open::%{_p}%}
         stop
     if {antidupe::open_time::%{_p}%} is set:
-        if difference between {antidupe::open_time::%{_p}%} and now < 0.8 seconds:
+        if difference between {antidupe::open_time::%{_p}%} and now < 0.3 seconds:
             set {inv_loc::%{_p}%} to location of {_p}
-            set {invwalk_moving_ticks::%{_p}%} to 0
             stop
     if {antidupe::last_damage::%{_p}%} is set:
         if difference between {antidupe::last_damage::%{_p}%} and now < 0.8 seconds:
@@ -128,7 +127,7 @@ function checkInvWalk(p: player):
     set {_l2} to {inv_loc::%{_p}%}
     set {_dist_threshold} to 1.5
     if {has_container_open::%{_p}%} is true:
-        set {_dist_threshold} to 1.9
+        set {_dist_threshold} to 1.8
     if distance between {_l1} and {_l2} > {_dist_threshold}:
         add 1 to {invwalk_moving_ticks::%{_p}%}
         if {invwalk_moving_ticks::%{_p}%} >= 4:
@@ -152,7 +151,7 @@ function openAntiDupeGUI(p: player):
     if {antidupe::enabled} is true:
         set {_status} to lime dye named "&a&lSystem Status &8» &2&lENABLED" with lore "&8&m------------------------", "&7Core Module: &aACTIVE", "&7Monitoring movement, chat,", "&7and container exploits.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
     else:
-        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
+        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
     set slot 14 of {_inv} to {_status}
     if {antidupe::alerts::%{_p}%} is not false:
         set {_alerts} to paper named "&e&lYour Alert Notifications &8» &a&lON" with lore "&8&m------------------------", "&7Your Personal Alerts: &aENABLED", "&7Detection flags will be", "&7shown to you in chat.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
