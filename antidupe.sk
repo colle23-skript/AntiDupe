@@ -1,6 +1,6 @@
 options:
     version: 1.0.2
-    update-url: https://raw.githubusercontent.com/colle23-skript/AntiDupe/main/version.txt
+    update-url: https://api.github.com/repos/colle23-skript/AntiDupe/releases/latest
 
 on join:
     if {antidupe::prefix} is not set:
@@ -15,10 +15,12 @@ on join:
         if {_v_check} contains "dev":
             stop
         wait 3 seconds
-        set {_latest_version} to text from "{@update-url}"
-        if {_latest_version} is set:
-            replace all """" with "" in {_latest_version}
-            replace all "'" with "" in {_latest_version}
+        set {_json} to text from "{@update-url}"
+        if {_json} is set:
+            set {_latest_version} to subtext of {_json} from (index of "tag_name" in {_json} + 11) to (length of {_json})
+            set {_latest_version} to first element of (split {_latest_version} by """")
+            replace all "v" with "" in {_latest_version}
+            replace all " " with "" in {_latest_version}
             replace all "\r" with "" in {_latest_version}
             replace all "\n" with "" in {_latest_version}
             if {_latest_version} contains "dev":
@@ -60,9 +62,9 @@ function addFlag(p: player, type: text):
     else if {_type} is "B":
         set {_max} to 4
     else if {_type} is "C":
-        set {_max} to 2
+        set {_max} to 1
     else if {_type} is "D":
-        set {_max} to 2
+        set {_max} to 1
     add 1 to {invwalk_flags::%{_type}%::%{_p}%}
     if {invwalk_flags::%{_type}%::%{_p}%} >= {_max}:
         set {_perm} to {antidupe::permission}
@@ -116,8 +118,9 @@ function checkInvWalk(p: player):
         clear {has_container_open::%{_p}%}
         stop
     if {antidupe::open_time::%{_p}%} is set:
-        if difference between {antidupe::open_time::%{_p}%} and now < 0.3 seconds:
+        if difference between {antidupe::open_time::%{_p}%} and now < 0.8 seconds:
             set {inv_loc::%{_p}%} to location of {_p}
+            set {invwalk_moving_ticks::%{_p}%} to 0
             stop
     if {antidupe::last_damage::%{_p}%} is set:
         if difference between {antidupe::last_damage::%{_p}%} and now < 0.8 seconds:
@@ -127,7 +130,7 @@ function checkInvWalk(p: player):
     set {_l2} to {inv_loc::%{_p}%}
     set {_dist_threshold} to 1.5
     if {has_container_open::%{_p}%} is true:
-        set {_dist_threshold} to 1.8
+        set {_dist_threshold} to 1.9
     if distance between {_l1} and {_l2} > {_dist_threshold}:
         add 1 to {invwalk_moving_ticks::%{_p}%}
         if {invwalk_moving_ticks::%{_p}%} >= 4:
@@ -151,7 +154,7 @@ function openAntiDupeGUI(p: player):
     if {antidupe::enabled} is true:
         set {_status} to lime dye named "&a&lSystem Status &8» &2&lENABLED" with lore "&8&m------------------------", "&7Core Module: &aACTIVE", "&7Monitoring movement, chat,", "&7and container exploits.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
     else:
-        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
+        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
     set slot 14 of {_inv} to {_status}
     if {antidupe::alerts::%{_p}%} is not false:
         set {_alerts} to paper named "&e&lYour Alert Notifications &8» &a&lON" with lore "&8&m------------------------", "&7Your Personal Alerts: &aENABLED", "&7Detection flags will be", "&7shown to you in chat.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
@@ -204,8 +207,8 @@ on chat:
             set {antidupe::prefix} to "&8[&3AntiDupe&8]"
             send "%{antidupe::prefix}% &aPrefix reset to default!" to player
         else:
-            set {antidupe::prefix} to message
-            send "%{antidupe::prefix}% &aPrefix successfully updated to: %message%" to player
+            set {antidupe::prefix} to colored message
+            send "%{antidupe::prefix}% &aPrefix successfully updated!" to player
         openAntiDupeGUI(player)
         stop
     if {setting_perm::%player%} is true:
@@ -230,7 +233,7 @@ on inventory click:
             if player is op:
                 set {setting_prefix::%player%} to true
                 close player's inventory
-                send "%{antidupe::prefix}% &eType the new plugin prefix in chat (or type 'none' to reset):" to player
+                send "%{antidupe::prefix}% &eType new prefix in chat (use & for colors, or 'none' to reset):" to player
             else:
                 send "%{antidupe::prefix}% &cOnly OP players can modify prefix configuration." to player
         else if index of clicked slot is 12:
