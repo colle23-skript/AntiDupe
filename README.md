@@ -38,7 +38,7 @@ You can unlock the Premium version through one of the following methods:
 1. **Discord Server Boost**: Boost our official Discord server to get lifetime access to the Premium version for free!
 2. **Direct Purchase**: Buy it directly from the owner for just **€2.00 EUR**.
 
-👉 **[Join our Official Discord Server to get Premium!]([YOUR_DISCORD_INVITE_LINK_HERE](https://discord.gg/SCfk2SsXrd))**
+👉 **[Join our Official Discord Server to get Premium!][YOUR_DISCORD_INVITE_LINK_HERE](https://discord.gg/SCfk2SsXrd)**
 
 ---
 
