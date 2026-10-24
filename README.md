@@ -15,7 +15,7 @@ AntiDupe continuously monitors player states and packets to ensure absolute serv
 
 ---
 
-## 📦 Requirements & Dependencies
+## Requirements & Dependencies
 To run AntiDupe successfully on your Minecraft server, make sure you have the following installed:
 1. **Minecraft Server**: Paper / Purpur (recommended for optimal performance).
 2. **Skript**: The core Skript plugin by Matocolotoi / Bensku.
@@ -42,7 +42,7 @@ You can unlock the Premium version through one of the following methods:
 
 ---
 
-## ⚙️ Installation
+## Installation
 1. Download the latest `.sk` file from the [Releases](https://github.com/colle23-skript/AntiDupe/releases) tab.
 2. Place the file inside your `plugins/Skript/scripts/` folder.
 3. Run `/skript reload <filename>` or restart your server.
