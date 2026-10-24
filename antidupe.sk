@@ -1,0 +1,237 @@
+options:
+    prefix: &8[&3AntiDupe&8]
+    version: 1.0.1
+    update-url: https://raw.githubusercontent.com/colle23-skript/AntiDupe/main/version.txt
+
+on join:
+    set {_perm} to {antidupe::permission}
+    if player has permission "%{_perm}%":
+        wait 2 seconds
+        send "{@prefix} &7Author: &fcolle23" to player
+        send "{@prefix} &7Version: &e{@version}" to player
+    if player is op:
+        wait 3 seconds
+        set {_latest_version} to text from "{@update-url}"
+        if {_latest_version} is set:
+            replace all """" with "" in {_latest_version}
+            replace all "'" with "" in {_latest_version}
+            replace all "\r" with "" in {_latest_version}
+            replace all "\n" with "" in {_latest_version}
+            if {_latest_version} != "{@version}":
+                send "{@prefix} &cA new update is available! Current: &e{@version} &8-> &aNew: &e%{_latest_version}%" to player
+                send formatted "{@prefix} &7Click here to view changelog & download: <open url:https://github.com/colle23-skript/AntiDupe/releases/latest><tooltip:&eClick to view release notes & download!>&b&nhttps://github.com/colle23-skript/AntiDupe/releases" to player
+
+on script load:
+    if {antidupe::enabled} is not set:
+        set {antidupe::enabled} to true
+    if {antidupe::permission} is not set:
+        set {antidupe::permission} to "antidupe.admin"
+
+function clearAll(p: player):
+    clear {inv_loc::%{_p}%}
+    clear {last_click::%{_p}%}
+    clear {has_container_open::%{_p}%}
+    clear {antidupe::inv_open::%{_p}%}
+    clear {invwalk_moving_ticks::%{_p}%}
+    clear {antidupe::damage_hits::%{_p}%}
+    clear {antidupe::last_damage::%{_p}%}
+    clear {invwalk_flags::A::%{_p}%}
+    clear {invwalk_flags::B::%{_p}%}
+    clear {invwalk_flags::C::%{_p}%}
+    clear {invwalk_flags::D::%{_p}%}
+
+function addFlag(p: player, type: text):
+    if {_p}'s gamemode is creative:
+        stop
+    if {antidupe::enabled} is not true:
+        stop
+    set {_max} to 5
+    if {_type} is "A":
+        set {_max} to 5
+    else if {_type} is "B":
+        set {_max} to 4
+    else if {_type} is "C":
+        set {_max} to 2
+    else if {_type} is "D":
+        set {_max} to 2
+    add 1 to {invwalk_flags::%{_type}%::%{_p}%}
+    if {invwalk_flags::%{_type}%::%{_p}%} >= {_max}:
+        set {_perm} to {antidupe::permission}
+        loop all players:
+            set {_can_receive} to false
+            if loop-player has permission "%{_perm}%":
+                set {_can_receive} to true
+            if loop-player is op:
+                set {_can_receive} to true
+            if {_can_receive} is true:
+                if {antidupe::alerts::%loop-player%} is not false:
+                    send "{@prefix} &3InvGrab &8| &7%{_p}% &8| &bType: &7%{_type}% &8| &bPing: &7%{_p}'s ping%ms" to loop-player
+        close {_p}'s inventory
+        clearAll({_p})
+
+function processAction(p: player):
+    if {_p}'s gamemode is creative:
+        stop
+    if {has_container_open::%{_p}%} is true:
+        addFlag({_p}, "D")
+    else:
+        addFlag({_p}, "C")
+    close {_p}'s inventory
+
+on damage:
+    if victim is a player:
+        if victim's gamemode is creative:
+            stop
+        set {antidupe::last_damage::%victim%} to now
+        set {invwalk_moving_ticks::%victim%} to 0
+        if {antidupe::inv_open::%victim%} is true:
+            add 1 to {antidupe::damage_hits::%victim%}
+            if {antidupe::damage_hits::%victim%} >= 10:
+                close victim's inventory
+                clearAll(victim)
+                send "{@prefix} &cInventory closed due to taking too many hits while open." to victim
+                if attacker is a player:
+                    if attacker's gamemode is not creative:
+                        close attacker's inventory
+                        clearAll(attacker)
+                        send "{@prefix} &cInventory closed because your target reached the hit limit." to attacker
+
+function checkInvWalk(p: player):
+    if {_p}'s gamemode is creative:
+        stop
+    if {antidupe::enabled} is not true:
+        stop
+    if {antidupe::last_damage::%{_p}%} is set:
+        if difference between {antidupe::last_damage::%{_p}%} and now < 0.8 seconds:
+            set {invwalk_moving_ticks::%{_p}%} to 0
+            stop
+    set {_l1} to location of {_p}
+    set {_l2} to {inv_loc::%{_p}%}
+    if distance between {_l1} and {_l2} > 1.5:
+        add 1 to {invwalk_moving_ticks::%{_p}%}
+        if {invwalk_moving_ticks::%{_p}%} >= 4:
+            if {has_container_open::%{_p}%} is true:
+                addFlag({_p}, "B")
+            else:
+                addFlag({_p}, "A")
+            set {invwalk_moving_ticks::%{_p}%} to 0
+    else:
+        if {invwalk_moving_ticks::%{_p}%} > 0:
+            remove 1 from {invwalk_moving_ticks::%{_p}%}
+
+function openAntiDupeGUI(p: player):
+    set {_inv} to a new chest inventory with 3 rows named "&8&lANTIDUPE &8» &3Control Center"
+    set slot 0, 2, 4, 6, 8, 18, 20, 22, 24, 26 of {_inv} to black stained glass pane named " "
+    set slot 1, 3, 5, 7, 9, 10, 12, 14, 16, 17, 19, 21, 23, 25 of {_inv} to cyan stained glass pane named " "
+    set {_eye} to eye of ender named "&b&lStaff Permission Node" with lore "&8&m------------------------", "&7Active Permission: &e%{antidupe::permission}%", "", "&7Controls which rank receives", "&7in-game detection alerts.", "&8&m------------------------", and "&e▶ Click to edit node &7(OP Only)"
+    set slot 11 of {_inv} to {_eye}
+    if {antidupe::enabled} is true:
+        set {_status} to lime dye named "&a&lSystem Status &8» &2&lENABLED" with lore "&8&m------------------------", "&7Core Module: &aACTIVE", "&7Monitoring movement, chat,", "&7and container exploits.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
+    else:
+        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
+    set slot 13 of {_inv} to {_status}
+    if {antidupe::alerts::%{_p}%} is not false:
+        set {_alerts} to paper named "&e&lYour Alert Notifications &8» &a&lON" with lore "&8&m------------------------", "&7Your Personal Alerts: &aENABLED", "&7Detection flags will be", "&7shown to you in chat.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
+    else:
+        set {_alerts} to paper named "&7&lYour Alert Notifications &8» &c&lOFF" with lore "&8&m------------------------", "&7Your Personal Alerts: &cMUTED", "&7Flag notifications are", "&7currently suppressed for you.", "&8&m------------------------", and "&e▶ Click to toggle your alerts"
+    set slot 15 of {_inv} to {_alerts}
+    open {_inv} to {_p}
+
+every 2 ticks:
+    if {antidupe::enabled} is true:
+        loop all players:
+            if loop-player's gamemode is not creative:
+                if {inv_loc::%loop-player%} is set:
+                    checkInvWalk(loop-player)
+
+on inventory open:
+    if player's gamemode is creative:
+        stop
+    if {antidupe::enabled} is true:
+        set {antidupe::inv_open::%player%} to true
+        set {inv_loc::%player%} to location of player
+        clear {invwalk_moving_ticks::%player%}
+        clear {antidupe::damage_hits::%player%}
+        if event-inventory is not player's inventory:
+            set {has_container_open::%player%} to true
+        else:
+            clear {has_container_open::%player%}
+
+on inventory close:
+    if player's gamemode is creative:
+        stop
+    if name of event-inventory is not "&8&lANTIDUPE &8» &3Control Center":
+        clearAll(player)
+
+on command:
+    if player's gamemode is creative:
+        stop
+    if {antidupe::inv_open::%player%} is true:
+        cancel event
+        processAction(player)
+
+on chat:
+    if player's gamemode is creative:
+        stop
+    if {setting_perm::%player%} is true:
+        cancel event
+        clear {setting_perm::%player%}
+        set {antidupe::permission} to message
+        send "{@prefix} &aPermission successfully updated to: &e%message%" to player
+        openAntiDupeGUI(player)
+        stop
+    if {antidupe::inv_open::%player%} is true:
+        cancel event
+        processAction(player)
+
+on inventory click:
+    if name of event-inventory is "&8&lANTIDUPE &8» &3Control Center":
+        cancel event
+        if index of clicked slot is 11:
+            if player is op:
+                set {setting_perm::%player%} to true
+                close player's inventory
+                send "{@prefix} &eType the new permission node in chat:" to player
+            else:
+                send "{@prefix} &cOnly OP players can modify permission configuration." to player
+        else if index of clicked slot is 13:
+            if player is op:
+                if {antidupe::enabled} is true:
+                    set {antidupe::enabled} to false
+                    send "{@prefix} &cAntiDupe module DISABLED." to player
+                else:
+                    set {antidupe::enabled} to true
+                    send "{@prefix} &aAntiDupe module ENABLED." to player
+                openAntiDupeGUI(player)
+            else:
+                send "{@prefix} &cOnly OP players can enable or disable the AntiDupe system." to player
+        else if index of clicked slot is 15:
+            if {antidupe::alerts::%player%} is false:
+                set {antidupe::alerts::%player%} to true
+                send "{@prefix} &aYour personal staff alerts are now ENABLED." to player
+            else:
+                set {antidupe::alerts::%player%} to false
+                send "{@prefix} &cYour personal staff alerts are now DISABLED." to player
+            openAntiDupeGUI(player)
+        stop
+    if player's gamemode is creative:
+        stop
+    if {inv_loc::%player%} is not set:
+        set {inv_loc::%player%} to location of player
+        set {antidupe::inv_open::%player%} to true
+    if {last_click::%player%} is set:
+        if difference between {last_click::%player%} and now < 0.2 seconds:
+            cancel event
+            stop
+    set {last_click::%player%} to now
+
+command /antidupe:
+    aliases: /adp
+    trigger:
+        set {_perm} to {antidupe::permission}
+        if player has permission "%{_perm}%":
+            openAntiDupeGUI(player)
+        else if player is op:
+            openAntiDupeGUI(player)
+        else:
+            send "{@prefix} &cYou do not have permission to execute this command." to player
