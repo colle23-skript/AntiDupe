@@ -1,5 +1,5 @@
 options:
-    version: 1.0.3
+    version: 1.0.4
     update-url: https://api.github.com/repos/colle23-skript/AntiDupe/releases/latest
 
 on join:
@@ -62,17 +62,9 @@ on script load:
             set {_can_see} to true
         if {_can_see} is true:
             send "%{antidupe::prefix}% &7Script successfully reloaded!" to loop-player
-            if {antidupe::first_join_hint::%loop-player%} is not set:
-                set {antidupe::first_join_hint::%loop-player%} to true
-                send "%{antidupe::prefix}% &7--- System Information & Overview ---" to loop-player
-                send " &8» &bCommands: &7/antidupe &8| &7/adp &8(&7Open Control Panel&8)" to loop-player
-                send " &8» &bType A: &7Moving too far while your inventory is open." to loop-player
-                send " &8» &bType B: &7Moving too far while a container (chest/shulker) is open." to loop-player
-                send " &8» &bType C: &7Executing commands or chat while an inventory is open." to loop-player
-                send " &8» &bType D: &7Executing commands or chat while a container is open." to loop-player
-                send " &8» &bType E: &7Attacking an entity while an inventory/container is open." to loop-player
 
-function clearAll(p: player):
+function clearAllAntiDupe(p: player):
+    set {antidupe::close_time::%{_p}%} to now
     clear {inv_loc::%{_p}%}
     clear {last_click::%{_p}%}
     clear {has_container_open::%{_p}%}
@@ -87,11 +79,14 @@ function clearAll(p: player):
     clear {invwalk_flags::D::%{_p}%}
     clear {invwalk_flags::E::%{_p}%}
 
-function addFlag(p: player, type: text):
+function addAntiDupeFlag(p: player, type: text):
     if {_p}'s gamemode is creative:
         stop
     if {antidupe::enabled} is not true:
         stop
+    if {antidupe::close_time::%{_p}%} is set:
+        if difference between {antidupe::close_time::%{_p}%} and now < 1 second:
+            stop
     set {_max} to 5
     if {_type} is "A":
         set {_max} to 5
@@ -116,23 +111,29 @@ function addFlag(p: player, type: text):
                 if {antidupe::alerts::%loop-player%} is not false:
                     send "%{antidupe::prefix}% &3InvGrab &8| &7%{_p}% &8| &bType: &7%{_type}% &8| &bPing: &7%{_p}'s ping%ms" to loop-player
         close {_p}'s inventory
-        clearAll({_p})
+        clearAllAntiDupe({_p})
 
-function processAction(p: player):
+function processAntiDupeAction(p: player):
     if {_p}'s gamemode is creative:
         stop
+    if {antidupe::close_time::%{_p}%} is set:
+        if difference between {antidupe::close_time::%{_p}%} and now < 1 second:
+            stop
     if {has_container_open::%{_p}%} is true:
-        addFlag({_p}, "D")
+        addAntiDupeFlag({_p}, "D")
     else:
-        addFlag({_p}, "C")
+        addAntiDupeFlag({_p}, "C")
     close {_p}'s inventory
 
 on damage:
     if attacker is a player:
         if attacker's gamemode is not creative:
+            if {antidupe::close_time::%attacker%} is set:
+                if difference between {antidupe::close_time::%attacker%} and now < 1 second:
+                    stop
             if {antidupe::inv_open::%attacker%} is true:
                 cancel event
-                addFlag(attacker, "E")
+                addAntiDupeFlag(attacker, "E")
                 close attacker's inventory
     if victim is a player:
         if victim's gamemode is creative:
@@ -143,18 +144,25 @@ on damage:
             add 1 to {antidupe::damage_hits::%victim%}
             if {antidupe::damage_hits::%victim%} >= 10:
                 close victim's inventory
-                clearAll(victim)
+                clearAllAntiDupe(victim)
                 send "%{antidupe::prefix}% &cInventory closed due to taking too many hits while open." to victim
                 if attacker is a player:
                     if attacker's gamemode is not creative:
                         close attacker's inventory
-                        clearAll(attacker)
+                        clearAllAntiDupe(attacker)
                         send "%{antidupe::prefix}% &cInventory closed because your target reached the hit limit." to attacker
 
 function checkInvWalk(p: player):
     if {_p}'s gamemode is creative:
         stop
     if {antidupe::enabled} is not true:
+        stop
+    if {antidupe::close_time::%{_p}%} is set:
+        if difference between {antidupe::close_time::%{_p}%} and now < 1 second:
+            stop
+    if {_p}'s current inventory is {_p}'s inventory:
+        if {antidupe::inv_open::%{_p}%} is true:
+            clearAllAntiDupe({_p})
         stop
     if {antidupe::inv_open::%{_p}%} is not true:
         clear {inv_loc::%{_p}%}
@@ -179,9 +187,9 @@ function checkInvWalk(p: player):
         add 1 to {invwalk_moving_ticks::%{_p}%}
         if {invwalk_moving_ticks::%{_p}%} >= 4:
             if {has_container_open::%{_p}%} is true:
-                addFlag({_p}, "B")
+                addAntiDupeFlag({_p}, "B")
             else:
-                addFlag({_p}, "A")
+                addAntiDupeFlag({_p}, "A")
             set {invwalk_moving_ticks::%{_p}%} to 0
     else:
         if {invwalk_moving_ticks::%{_p}%} > 0:
@@ -211,11 +219,20 @@ every 2 ticks:
     if {antidupe::enabled} is true:
         loop all players:
             if loop-player's gamemode is not creative:
-                if {antidupe::inv_open::%loop-player%} is true:
-                    checkInvWalk(loop-player)
+                checkInvWalk(loop-player)
+
+every 20 ticks:
+    if {antidupe::enabled} is true:
+        loop all players:
+            if loop-player's gamemode is not creative:
+                if loop-player's current inventory is loop-player's inventory:
+                    if {antidupe::inv_open::%loop-player%} is true:
+                        clearAllAntiDupe(loop-player)
 
 on inventory open:
     if player's gamemode is creative:
+        stop
+    if name of event-inventory contains "ANTIDUPE":
         stop
     if {antidupe::enabled} is true:
         set {antidupe::inv_open::%player%} to true
@@ -231,18 +248,26 @@ on inventory open:
 on inventory close:
     if player's gamemode is creative:
         stop
-    if name of event-inventory is not "&8&lANTIDUPE &8» &3Control Center":
-        clearAll(player)
+    clearAllAntiDupe(player)
 
 on command:
     if player's gamemode is creative:
         stop
+    if name of player's current inventory contains "ANTIDUPE":
+        stop
+    if {antidupe::close_time::%player%} is set:
+        if difference between {antidupe::close_time::%player%} and now < 1 second:
+            stop
+    if player's current inventory is player's inventory:
+        stop
     if {antidupe::inv_open::%player%} is true:
         cancel event
-        processAction(player)
+        processAntiDupeAction(player)
 
 on chat:
     if player's gamemode is creative:
+        stop
+    if name of player's current inventory contains "ANTIDUPE":
         stop
     if {setting_prefix::%player%} is true:
         cancel event
@@ -266,12 +291,17 @@ on chat:
             send "%{antidupe::prefix}% &aPermission successfully updated to: &e%message%" to player
         openAntiDupeGUI(player)
         stop
+    if {antidupe::close_time::%player%} is set:
+        if difference between {antidupe::close_time::%player%} and now < 1 second:
+            stop
+    if player's current inventory is player's inventory:
+        stop
     if {antidupe::inv_open::%player%} is true:
         cancel event
-        processAction(player)
+        processAntiDupeAction(player)
 
 on inventory click:
-    if name of event-inventory is "&8&lANTIDUPE &8» &3Control Center":
+    if name of event-inventory contains "ANTIDUPE":
         cancel event
         if index of clicked slot is 10:
             if player is op:
