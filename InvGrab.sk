@@ -1,0 +1,492 @@
+options:
+    version: 2.1.3-FREE
+    update-url: https://github.com/colle23-skript/InvGuard/releases/latest
+
+on script load:
+    if {invguard::enabled} is not set:
+        set {invguard::enabled} to true
+    if {invguard::permission} is not set:
+        set {invguard::permission} to "invguard.admin"
+    if {invguard::prefix} is not set:
+        set {invguard::prefix} to "&8[&3InvGuard &a&lFREE&8]"
+    delete {-invguard::*}
+    wait 2 ticks
+    set {_perm} to {invguard::permission}
+    loop all players:
+        if loop-player has permission "%{_perm}%" or loop-player is op:
+            send "%{invguard::prefix}% &7System reloaded successfully!" to loop-player
+
+on join:
+    if {invguard::prefix} is not set:
+        set {invguard::prefix} to "&8[&3InvGuard &a&lFREE&8]"
+    set {_perm} to {invguard::permission}
+    if player has permission "%{_perm}%" or player is op:
+        if {invguard::first_join_hint::%uuid of player%} is not set:
+            set {invguard::first_join_hint::%uuid of player%} to true
+            wait 3 seconds
+            send "%{invguard::prefix}% &7--- System Information & Overview ---" to player
+            send " &8» &bCommands: &7/invguard &8(&7Open Control Panel&8)" to player
+
+on quit:
+    clearAllInvGuard(player)
+    set {_u} to uuid of player
+    delete {-invguard::desync_primed::%{_u}%}
+    delete {-invguard::desync_clicks::%{_u}%}
+    delete {-invguard::close_yaw::%{_u}%}
+    delete {-invguard::close_pitch::%{_u}%}
+
+function resyncInventory(p: player):
+    set {_off} to offhand tool of {_p}
+    set offhand tool of {_p} to {_off}
+    set {_tool} to tool of {_p}
+    set tool of {_p} to {_tool}
+    set {_cur} to cursor slot of {_p}
+    set cursor slot of {_p} to {_cur}
+
+function clearAllInvGuard(p: player):
+    set {_u} to uuid of {_p}
+    set {-invguard::close_time::%{_u}%} to now
+    delete {-invguard::loc::%{_u}%}
+    delete {-invguard::container_loc::%{_u}%}
+    delete {-invguard::last_click_block::%{_u}%}
+    delete {-invguard::last_click_time::%{_u}%}
+    delete {-invguard::last_inv_activity::%{_u}%}
+    delete {-invguard::click_yaw::%{_u}%}
+    delete {-invguard::click_pitch::%{_u}%}
+    delete {-invguard::has_container::%{_u}%}
+    delete {-invguard::inv_open::%{_u}%}
+    delete {-invguard::moving_ticks::%{_u}%}
+    delete {-invguard::damage_hits::%{_u}%}
+    delete {-invguard::last_damage::%{_u}%}
+    delete {-invguard::open_time::%{_u}%}
+    delete {-invguard::click_window::%{_u}%}
+    delete {-invguard::click_count::%{_u}%}
+
+function getPingBuffer(p: player) :: timespan:
+    set {_ping} to {_p}'s ping
+    set {_buf} to 0 seconds
+    if {_ping} > 100:
+        add 0.15 seconds to {_buf}
+    if {_ping} > 180:
+        add 0.2 seconds to {_buf}
+    if {_ping} > 260:
+        add 0.25 seconds to {_buf}
+    if {_ping} > 380:
+        add 0.3 seconds to {_buf}
+    return {_buf}
+
+function addInvGuardFlag(p: player, type: text):
+    if {_p}'s gamemode is creative or spectator:
+        stop
+    if {invguard::enabled} is not true:
+        stop
+    set {_u} to uuid of {_p}
+    set {_ping} to {_p}'s ping
+
+    if {_type} is not "H" or "I":
+        set {_close_grace} to 0.4 seconds
+        add getPingBuffer({_p}) to {_close_grace}
+        if {-invguard::close_time::%{_u}%} is set:
+            if difference between {-invguard::close_time::%{_u}%} and now < {_close_grace}:
+                stop
+
+    set {_max} to 1
+    if {_type} is "A":
+        set {_max} to 4
+    else if {_type} is "B":
+        set {_max} to 3
+    else if {_type} is "M":
+        set {_max} to 2
+
+    if {_ping} > 160:
+        if {_type} is "A" or "B" or "M":
+            add 1 to {_max}
+        else if {_type} is "E":
+            add 1 to {_max}
+
+    add 1 to {-invguard::flags::%{_type}%::%{_u}%}
+    if {-invguard::flags::%{_type}%::%{_u}%} >= {_max}:
+        set {_perm} to {invguard::permission}
+        loop all players:
+            set {_can_receive} to false
+            if loop-player has permission "%{_perm}%":
+                set {_can_receive} to true
+            if loop-player is op:
+                set {_can_receive} to true
+            if {_can_receive} is true:
+                if {invguard::alerts::%uuid of loop-player%} is not false:
+                    send "%{invguard::prefix}% &3Alert &8| &f%{_p}% &8| &bType: &e%{_type}% &8| &bPing: &7%{_ping}%ms" to loop-player
+
+        delete {-invguard::desync_primed::%{_u}%}
+        delete {-invguard::desync_clicks::%{_u}%}
+        set {-invguard::internal_close::%{_u}%} to true
+        close {_p}'s inventory
+        resyncInventory({_p})
+        delete {-invguard::internal_close::%{_u}%}
+        clearAllInvGuard({_p})
+        delete {-invguard::flags::%{_type}%::%{_u}%}
+
+function processInvChatAction(p: player):
+    if {_p}'s gamemode is creative or spectator:
+        stop
+    set {_u} to uuid of {_p}
+    set {_close_grace} to 0.4 seconds
+    add getPingBuffer({_p}) to {_close_grace}
+    if {-invguard::close_time::%{_u}%} is set:
+        if difference between {-invguard::close_time::%{_u}%} and now < {_close_grace}:
+            stop
+    if {-invguard::has_container::%{_u}%} is true:
+        addInvGuardFlag({_p}, "D")
+    else:
+        addInvGuardFlag({_p}, "C")
+    close {_p}'s inventory
+    resyncInventory({_p})
+
+on damage:
+    if attacker is a player:
+        if attacker's gamemode is not creative or spectator:
+            set {_ua} to uuid of attacker
+            if {-invguard::inv_open::%{_ua}%} is true:
+                set {_grace} to 0.35 seconds
+                add getPingBuffer(attacker) to {_grace}
+                if {-invguard::open_time::%{_ua}%} is set:
+                    if difference between {-invguard::open_time::%{_ua}%} and now < {_grace}:
+                        stop
+                cancel event
+                addInvGuardFlag(attacker, "E")
+    if victim is a player:
+        if victim's gamemode is creative or spectator:
+            stop
+        set {_uv} to uuid of victim
+        set {-invguard::last_damage::%{_uv}%} to now
+        set {-invguard::moving_ticks::%{_uv}%} to 0
+        if {-invguard::inv_open::%{_uv}%} is true:
+            add 1 to {-invguard::damage_hits::%{_uv}%}
+            if {-invguard::damage_hits::%{_uv}%} >= 8:
+                close victim's inventory
+                resyncInventory(victim)
+                clearAllInvGuard(victim)
+
+function checkInvWalk(p: player):
+    if {_p}'s gamemode is creative or spectator:
+        stop
+    set {_u} to uuid of {_p}
+
+    if {-invguard::desync_primed::%{_u}%} is true:
+        if abs(yaw of {_p} - {-invguard::close_yaw::%{_u}%}) > 0.5:
+            delete {-invguard::desync_primed::%{_u}%}
+            delete {-invguard::desync_clicks::%{_u}%}
+        else if abs(pitch of {_p} - {-invguard::close_pitch::%{_u}%}) > 0.5:
+            delete {-invguard::desync_primed::%{_u}%}
+            delete {-invguard::desync_clicks::%{_u}%}
+
+    if {-invguard::inv_open::%{_u}%} is not true:
+        stop
+
+    if {-invguard::click_yaw::%{_u}%} is set:
+        if abs(yaw of {_p} - {-invguard::click_yaw::%{_u}%}) > 10:
+            if cursor slot of {_p} is not air:
+                addInvGuardFlag({_p}, "I")
+                stop
+            if {-invguard::has_container::%{_u}%} is true:
+                addInvGuardFlag({_p}, "I")
+                stop
+
+    set {_open_grace} to 0.6 seconds
+    if {-invguard::has_container::%{_u}%} is not true:
+        set {_open_grace} to 0.15 seconds
+    add getPingBuffer({_p}) to {_open_grace}
+
+    if {-invguard::open_time::%{_u}%} is set:
+        if difference between {-invguard::open_time::%{_u}%} and now < {_open_grace}:
+            set {-invguard::loc::%{_u}%} to location of {_p}
+            set {-invguard::moving_ticks::%{_u}%} to 0
+            stop
+
+    set {_l1} to location of {_p}
+    set {_l2} to {-invguard::loc::%{_u}%}
+    if {_l2} is not set:
+        set {-invguard::loc::%{_u}%} to {_l1}
+        stop
+    if world of {_l1} is not world of {_l2}:
+        addInvGuardFlag({_p}, "F")
+        stop
+
+    set y-coordinate of {_l1} to y-coordinate of {_l2}
+    set {_dist_threshold} to 1.4
+    if {-invguard::has_container::%{_u}%} is true:
+        set {_dist_threshold} to 1.8
+
+    if distance between {_l1} and {_l2} > {_dist_threshold}:
+        add 1 to {-invguard::moving_ticks::%{_u}%}
+        set {_trigger_ticks} to 3
+        if {-invguard::has_container::%{_u}%} is not true:
+            set {_trigger_ticks} to 2
+
+        if {-invguard::moving_ticks::%{_u}%} >= {_trigger_ticks}:
+            if {-invguard::has_container::%{_u}%} is true:
+                addInvGuardFlag({_p}, "B")
+            else:
+                addInvGuardFlag({_p}, "A")
+            set {-invguard::moving_ticks::%{_u}%} to 0
+            set {-invguard::loc::%{_u}%} to location of {_p}
+            if {-invguard::has_container::%{_u}%} is not true:
+                set {-invguard::last_inv_activity::%{_u}%} to now
+    else:
+        if {-invguard::moving_ticks::%{_u}%} > 0:
+            remove 1 from {-invguard::moving_ticks::%{_u}%}
+
+every 4 ticks:
+    if {invguard::enabled} is true:
+        loop all players:
+            set {_u} to uuid of loop-player
+            if {-invguard::inv_open::%{_u}%} is true:
+                checkInvWalk(loop-player)
+            else if {-invguard::desync_primed::%{_u}%} is true:
+                checkInvWalk(loop-player)
+
+on inventory open:
+    if player's gamemode is creative or spectator:
+        stop
+    if name of event-inventory contains "INVGUARD FREE":
+        stop
+    if {invguard::enabled} is true:
+        if "%block at player%" contains "portal":
+            cancel event
+            addInvGuardFlag(player, "G")
+            stop
+        set {_u} to uuid of player
+        delete {-invguard::desync_primed::%{_u}%}
+        delete {-invguard::desync_clicks::%{_u}%}
+        set {-invguard::inv_open::%{_u}%} to true
+        set {-invguard::open_time::%{_u}%} to now
+        set {-invguard::last_inv_activity::%{_u}%} to now
+        set {-invguard::loc::%{_u}%} to location of player
+        set {-invguard::click_yaw::%{_u}%} to yaw of player
+        set {-invguard::click_pitch::%{_u}%} to pitch of player
+        delete {-invguard::moving_ticks::%{_u}%}
+        delete {-invguard::damage_hits::%{_u}%}
+        delete {-invguard::container_loc::%{_u}%}
+        if event-inventory is not player's inventory:
+            set {-invguard::has_container::%{_u}%} to true
+            if {-invguard::last_click_time::%{_u}%} is set:
+                if difference between {-invguard::last_click_time::%{_u}%} and now < 0.25 seconds:
+                    if distance between player and {-invguard::last_click_block::%{_u}%} <= 6.5:
+                        set {-invguard::container_loc::%{_u}%} to {-invguard::last_click_block::%{_u}%}
+        else:
+            delete {-invguard::has_container::%{_u}%}
+
+on inventory close:
+    set {_u} to uuid of player
+    if {-invguard::internal_close::%{_u}%} is true:
+        stop
+    if player's gamemode is not creative or spectator:
+        if {invguard::enabled} is true:
+            set {-invguard::desync_primed::%{_u}%} to true
+            set {-invguard::desync_clicks::%{_u}%} to 0
+            set {-invguard::close_yaw::%{_u}%} to yaw of player
+            set {-invguard::close_pitch::%{_u}%} to pitch of player
+    clearAllInvGuard(player)
+
+on inventory click:
+    if name of event-inventory contains "INVGUARD FREE":
+        cancel event
+        if index of clicked slot is 10:
+            if player is op:
+                set {-invguard::setting_prefix::%uuid of player%} to true
+                close player's inventory
+                send "%{invguard::prefix}% &eType the new prefix in chat (use & for colors, or 'reset' to restore):" to player
+            else:
+                send "%{invguard::prefix}% &cOnly OP players can modify the prefix." to player
+        else if index of clicked slot is 12:
+            if player is op:
+                set {-invguard::setting_perm::%uuid of player%} to true
+                close player's inventory
+                send "%{invguard::prefix}% &eType the new permission node in chat (or 'reset' to restore):" to player
+            else:
+                send "%{invguard::prefix}% &cOnly OP players can modify the permission node." to player
+        else if index of clicked slot is 14:
+            if player is op:
+                if {invguard::enabled} is true:
+                    set {invguard::enabled} to false
+                    send "%{invguard::prefix}% &cInvGuard module DISABLED." to player
+                else:
+                    set {invguard::enabled} to true
+                    send "%{invguard::prefix}% &aInvGuard module ENABLED." to player
+                openInvGuardGUI(player)
+            else:
+                send "%{invguard::prefix}% &cOnly OP players can enable/disable the module." to player
+        else if index of clicked slot is 16:
+            set {_u} to uuid of player
+            if {invguard::alerts::%{_u}%} is false:
+                set {invguard::alerts::%{_u}%} to true
+                send "%{invguard::prefix}% &aYour staff alerts are now ENABLED." to player
+            else:
+                set {invguard::alerts::%{_u}%} to false
+                send "%{invguard::prefix}% &cYour staff alerts are now DISABLED." to player
+            openInvGuardGUI(player)
+        stop
+
+    if player's gamemode is creative or spectator:
+        stop
+    if {invguard::enabled} is not true:
+        stop
+    set {_u} to uuid of player
+
+    if player is dead or health of player <= 0:
+        cancel event
+        stop
+    if "%block at player%" contains "portal":
+        cancel event
+        addInvGuardFlag(player, "G")
+        stop
+
+    if {-invguard::desync_primed::%{_u}%} is true:
+        set {_dyaw} to abs(yaw of player - {-invguard::close_yaw::%{_u}%})
+        set {_dpitch} to abs(pitch of player - {-invguard::close_pitch::%{_u}%})
+        if {_dyaw} < 0.05:
+            if {_dpitch} < 0.05:
+                add 1 to {-invguard::desync_clicks::%{_u}%}
+                if "%type of event-inventory%" contains "crafting":
+                    add 1 to {-invguard::desync_clicks::%{_u}%}
+                if index of clicked slot is 40:
+                    add 1 to {-invguard::desync_clicks::%{_u}%}
+                if {-invguard::desync_clicks::%{_u}%} >= 2:
+                    cancel event
+                    addInvGuardFlag(player, "H")
+                    stop
+            else:
+                delete {-invguard::desync_primed::%{_u}%}
+                delete {-invguard::desync_clicks::%{_u}%}
+        else:
+            delete {-invguard::desync_primed::%{_u}%}
+            delete {-invguard::desync_clicks::%{_u}%}
+
+    if {-invguard::inv_open::%{_u}%} is true:
+        if {-invguard::click_yaw::%{_u}%} is set:
+            if abs(yaw of player - {-invguard::click_yaw::%{_u}%}) > 5:
+                cancel event
+                addInvGuardFlag(player, "I")
+                stop
+            if abs(pitch of player - {-invguard::click_pitch::%{_u}%}) > 5:
+                cancel event
+                addInvGuardFlag(player, "I")
+                stop
+
+    if {-invguard::container_loc::%{_u}%} is set:
+        if distance between player and {-invguard::container_loc::%{_u}%} > 6.5:
+            cancel event
+            addInvGuardFlag(player, "F")
+            stop
+
+    set {-invguard::last_inv_activity::%{_u}%} to now
+    set {-invguard::click_yaw::%{_u}%} to yaw of player
+    set {-invguard::click_pitch::%{_u}%} to pitch of player
+    if {-invguard::inv_open::%{_u}%} is not set:
+        set {_recently_closed} to false
+        if {-invguard::close_time::%{_u}%} is set:
+            if difference between {-invguard::close_time::%{_u}%} and now < 0.25 seconds:
+                set {_recently_closed} to true
+        if {_recently_closed} is false:
+            set {-invguard::loc::%{_u}%} to location of player
+            set {-invguard::inv_open::%{_u}%} to true
+            set {-invguard::open_time::%{_u}%} to now
+
+    set {_max_clicks} to 8
+    if player's ping > 150:
+        set {_max_clicks} to 11
+    if player's ping > 250:
+        set {_max_clicks} to 14
+
+    if {-invguard::click_window::%{_u}%} is set:
+        if difference between {-invguard::click_window::%{_u}%} and now < 0.25 seconds:
+            add 1 to {-invguard::click_count::%{_u}%}
+            if {-invguard::click_count::%{_u}%} > {_max_clicks}:
+                cancel event
+                addInvGuardFlag(player, "M")
+                stop
+        else:
+            set {-invguard::click_window::%{_u}%} to now
+            set {-invguard::click_count::%{_u}%} to 1
+    else:
+        set {-invguard::click_window::%{_u}%} to now
+        set {-invguard::click_count::%{_u}%} to 1
+
+    if index of clicked slot is 40 or "%type of event-inventory%" contains "crafting":
+        wait 1 tick
+        resyncInventory(player)
+
+on command:
+    if player's gamemode is creative or spectator:
+        stop
+    set {_u} to uuid of player
+    if {-invguard::has_container::%{_u}%} is true:
+        cancel event
+        processInvChatAction(player)
+
+on chat:
+    set {_u} to uuid of player
+    if {-invguard::setting_prefix::%{_u}%} is true:
+        cancel event
+        delete {-invguard::setting_prefix::%{_u}%}
+        if message is "none" or "reset" or "clear":
+            set {invguard::prefix} to "&8[&3InvGuard &a&lFREE&8]"
+            send "%{invguard::prefix}% &aPrefix restored to default!" to player
+        else:
+            set {invguard::prefix} to colored message
+            send "%{invguard::prefix}% &aPrefix successfully updated!" to player
+        openInvGuardGUI(player)
+        stop
+
+    if {-invguard::setting_perm::%{_u}%} is true:
+        cancel event
+        delete {-invguard::setting_perm::%{_u}%}
+        if message is "none" or "reset" or "clear":
+            set {invguard::permission} to "invguard.admin"
+            send "%{invguard::prefix}% &aPermission restored to &einvguard.admin&a!" to player
+        else:
+            set {invguard::permission} to message
+            send "%{invguard::prefix}% &aPermission successfully updated to: &e%message%" to player
+        openInvGuardGUI(player)
+        stop
+
+    if player's gamemode is creative or spectator:
+        stop
+    if {-invguard::inv_open::%{_u}%} is true:
+        cancel event
+        processInvChatAction(player)
+
+function openInvGuardGUI(p: player):
+    set {_u} to uuid of {_p}
+    set {_inv} to a new chest inventory with 3 rows named "&8&lINVGUARD FREE &8» &3Control Center"
+    set slot 0, 2, 4, 6, 8, 18, 20, 22, 24, 26 of {_inv} to black stained glass pane named " "
+    set slot 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25 of {_inv} to green stained glass pane named " "
+    set {_tag} to name tag named "&b&lPlugin Prefix" with lore "&8&m------------------------", "&7Active Prefix: %{invguard::prefix}%", "", "&7Customizes the chat prefix", "&7for all notifications.", "&8&m------------------------", and "&e▶ Click to edit &7(OP Only)"
+    set slot 10 of {_inv} to {_tag}
+    set {_eye} to eye of ender named "&b&lStaff Permission" with lore "&8&m------------------------", "&7Active Node: &e%{invguard::permission}%", "", "&7Controls which ranks receive", "&7in-game detection alerts.", "&8&m------------------------", and "&e▶ Click to edit &7(OP Only)"
+    set slot 12 of {_inv} to {_eye}
+    if {invguard::enabled} is true:
+        set {_status} to lime dye named "&a&lSystem Status &8» &2&lENABLED" with lore "&8&m------------------------", "&7Core Module: &aACTIVE", "&7Monitors InvWalk, Desync (H/I),", "&7Reach/Portal Dupe, & Floods.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
+    else:
+        set {_status} to red dye named "&c&lSystem Status &8» &4&lDISABLED" with lore "&8&m------------------------", "&7Core Module: &cINACTIVE", "&7All anti-cheat checks are", "&7currently paused.", "&8&m------------------------", and "&e▶ Click to toggle &7(OP Only)"
+    set slot 14 of {_inv} to {_status}
+    if {invguard::alerts::%{_u}%} is not false:
+        set {_alerts} to paper named "&e&lYour Alert Notifications &8» &a&lON" with lore "&8&m------------------------", "&7Personal Alerts: &aENABLED", "&7Detection alerts will be", "&7shown in your chat.", "&8&m------------------------", and "&e▶ Click to mute"
+    else:
+        set {_alerts} to paper named "&7&lYour Alert Notifications &8» &c&lOFF" with lore "&8&m------------------------", "&7Personal Alerts: &cMUTED", "&7Flag notifications are", "&7suppressed for you.", "&8&m------------------------", and "&e▶ Click to unmute"
+    set slot 16 of {_inv} to {_alerts}
+    open {_inv} to {_p}
+
+command /invguard:
+    aliases: /ig
+    executable by: players
+    trigger:
+        set {_perm} to {invguard::permission}
+        if player does not have permission "%{_perm}%":
+            if player is not op:
+                send "%{invguard::prefix}% &cYou do not have permission to execute this command." to player
+                stop
+        openInvGuardGUI(player)
+
+on tab complete of "/invguard", "/ig":
+    set tab completions for position 1 to ""
