@@ -41,7 +41,7 @@ You can unlock the full **PRO** version and support future updates through our o
 
 ## Installation Instructions
 
-1. Download the `.sk` file (Free or PRO) from the [Releases](https://github.com/colle23-skript/InvGuard/releases) tab.
+1. Download the `.sk` file (Free or PRO) from the [Releases](https://github.com/colle23-skript/Antidupe-InvGuard/releases) tab.
 2. Place the file inside your `plugins/Skript/scripts/` folder.
 3. Run `/sk reload <filename>` or restart your server.
 4. Enjoy a secure, dupe-free server environment!
