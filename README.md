@@ -24,9 +24,9 @@ InvGuard continuously monitors player states and packets to ensure absolute serv
 | Feature / Check | Free Version | PRO Version (€2.00 EUR) |
 | :--- | :---: | :---: |
 | **Core Checks (A to G, H, I, M)** | Included | Included |
+| **In-Game Control Center GUI (`/ig`)** | Included | Included |
+| **Custom Prefix & Permission Nodes** | Included | Included |
 | **Block & Entity Checks (Y, Z)** | Not Included (PRO Only) | Included |
-| **In-Game Control Center GUI (`/ig`)** | Not Included | Included |
-| **Custom Prefix & Permission Nodes** | Not Included | Included |
 | **Persistent Player Violation Logs (`/ig logs`)** | Not Included | Included |
 
 ---
